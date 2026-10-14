@@ -1,0 +1,44 @@
+name: agenda-whatsapp
+
+on:
+  schedule:
+    # cada 10 min entre 09:00 y 02:59 UTC (cubre 06:00-23:59 Chile en verano e invierno)
+    - cron: "*/10 9-23,0-2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: agenda
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Ejecutar
+        env:
+          ICS_PERSONAL: ${{ secrets.ICS_PERSONAL }}
+          ICS_LOTUS: ${{ secrets.ICS_LOTUS }}
+          ICS_VELARIA: ${{ secrets.ICS_VELARIA }}
+          ICS_FAMILIA: ${{ secrets.ICS_FAMILIA }}
+          CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}
+          CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+        run: python agenda.py
+      - name: Guardar estado
+        run: |
+          if [ -n "$(git status --porcelain sent.json)" ]; then
+            git config user.name "agenda-bot"
+            git config user.email "agenda-bot@users.noreply.github.com"
+            git add sent.json
+            git commit -m "estado"
+            git push
+          fi
